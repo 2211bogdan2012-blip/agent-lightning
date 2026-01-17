@@ -1,17 +1,9 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-"""Prompts for ChartQA agent with reduced exposure bias.
-
-This module implements a simplified 2-step pipeline:
-1. Extract: Model looks at chart + question, extracts all relevant data as structured JSON
-2. Compute: Given extracted data, compute the final answer
-"""
+"""Prompts for ChartQA agent workflow."""
 
 from langchain_core.prompts import ChatPromptTemplate
 
-# ============================================================================
-# Step 1: Data Extraction (Model + Image)
-# ============================================================================
 
 EXTRACT_DATA_PROMPT = ChatPromptTemplate(
     [
@@ -48,9 +40,6 @@ Rules:
     ]
 )
 
-# ============================================================================
-# Step 2: Compute Answer (Text-only)
-# ============================================================================
 
 COMPUTE_ANSWER_PROMPT = ChatPromptTemplate(
     [
