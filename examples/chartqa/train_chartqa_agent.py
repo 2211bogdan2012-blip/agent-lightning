@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-"""Training helper for ChartQA agent using VERL workflow.
+"""Training helper for ChartQA modeled VERL workflow.
 
 Example usage:
 
@@ -97,11 +97,6 @@ def config_ci() -> Dict[str, Any]:
             f.write(f"run_name={EXPERIMENT_NAME}\n")
 
     config = deepcopy(RL_CONFIG)
-    config["data"]["train_batch_size"] = 4
-    config["actor_rollout_ref"]["rollout"]["tensor_model_parallel_size"] = 1
-    config["actor_rollout_ref"]["rollout"]["gpu_memory_utilization"] = 0.8
-    config["actor_rollout_ref"]["actor"]["ppo_mini_batch_size"] = 4
-    config["trainer"]["n_gpus_per_node"] = 1
     config["trainer"]["total_training_steps"] = 4
     config["trainer"]["val_before_train"] = True
     config["trainer"]["test_freq"] = 2
@@ -121,7 +116,8 @@ def config_debug() -> Dict[str, Any]:
 def config_qwen() -> Dict[str, Any]:
     """Return a Qwen-focused config with validation before each epoch."""
     config = deepcopy(RL_CONFIG)
-    # config["trainer"]["val_before_train"] = True
+    config["trainer"]["val_before_train"] = True
+    config["trainer"]["n_gpus_per_node"] = 2
     config["trainer"]["total_epochs"] = 2
     config["trainer"]["test_freq"] = 32
     return config
@@ -135,7 +131,7 @@ def train(
     n_runners: int,
     debug: bool,
 ) -> None:
-    """Run VERL training for ChartQA agent.
+    """Run VERL training for ChartQA.
 
     Args:
         config: VERL configuration produced by one of the helpers above.

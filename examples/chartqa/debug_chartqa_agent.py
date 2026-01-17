@@ -8,9 +8,9 @@ Example usage for OpenAI API:
 python debug_chartqa_agent.py
 ```
 
-Example usage for local vLLM model:
+Example usage for self-hosted model.
 
-```bash
+```
 vllm serve Qwen/Qwen2.5-VL-3B-Instruct \
     --gpu-memory-utilization 0.6 \
     --max-model-len 4096 \
