@@ -1,4 +1,5 @@
 # ChartQA Example
+[![chartqa workflow status](https://github.com/microsoft/agent-lightning/actions/workflows/badge-chartqa.yml/badge.svg)](https://github.com/microsoft/agent-lightning/actions/workflows/examples-chartqa.yml)
 
 This example demonstrates training a visual reasoning agent on the ChartQA dataset using Agent-Lightning with the VERL algorithm. The agent uses a two-step pipeline to answer questions about charts:
 
@@ -8,7 +9,6 @@ This example demonstrates training a visual reasoning agent on the ChartQA datas
 ## Requirements
 
 - Single node with 2 GPUs (40GB each recommended)
-- Model: Qwen2.5-VL-3B-Instruct
 
 Install dependencies with:
 
@@ -22,7 +22,7 @@ uv sync --frozen \
     --group torch-gpu-stable
 ```
 
-**Note:** vLLM 0.10.2 is the tested version. Other versions may have compatibility issues.
+**Currently vLLM 0.10.2 is the only tested version. You might see issues like `cu_seqlens_q must be on CUDA` or flash-attn installation failures if you use other versions.** (See https://github.com/vllm-project/vllm/issues/27340)
 
 ## Dataset
 
@@ -33,9 +33,10 @@ cd examples/chartqa
 python prepare_data.py
 ```
 
-This downloads the ChartQA dataset from HuggingFace (`HuggingFaceM4/ChartQA`), saves images locally, and creates parquet files for training/testing.
+This downloads the ChartQA dataset from HuggingFace (`HuggingFaceM4/ChartQA`), saves images locally, and creates parquet files for training/testing. No HuggingFace token is required (public dataset).
 
 **Dataset Statistics:**
+
 - Training: ~18,000 chart question-answer pairs
 - Test: ~2,500 pairs
 - Chart types: Bar, line, pie, scatter, etc.
