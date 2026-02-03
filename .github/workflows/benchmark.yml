@@ -38,21 +38,21 @@ jobs:
               --n-runners 32
               --max-rounds 6
               --sleep-seconds 0.5
-          - id: scenario-medium-scale
-            display: Medium production scale
-            kind: scenario
-            store_workers: 16
-            runner:
-              - self-hosted
-              - 1ES.Pool=agl-runner-cpu
-            timeout: 45
-            args: >-
-              --mode batch
-              --total-tasks 10000
-              --batch-size 1000
-              --n-runners 100
-              --max-rounds 10
-              --sleep-seconds 0.1
+          # - id: scenario-medium-scale
+          #   display: Medium production scale
+          #   kind: scenario
+          #   store_workers: 16
+          #   runner:
+          #     - self-hosted
+          #     - 1ES.Pool=agl-runner-cpu
+          #   timeout: 45
+          #   args: >-
+          #     --mode batch
+          #     --total-tasks 10000
+          #     --batch-size 1000
+          #     --n-runners 100
+          #     --max-rounds 10
+          #     --sleep-seconds 0.1
           - id: scenario-midhigh-scale
             display: Mid-high production scale
             kind: scenario
@@ -68,68 +68,68 @@ jobs:
               --n-runners 300
               --max-rounds 6
               --sleep-seconds 0.1
-          - id: scenario-large-batch
-            display: Large batch waves
-            kind: scenario
-            store_workers: 96
-            runner:
-              - self-hosted
-              - 1ES.Pool=agl-runner-cpu-high
-            timeout: 120
-            args: >-
-              --mode batch
-              --total-tasks 50000
-              --batch-size 8192
-              --n-runners 1000
-              --max-rounds 3
-              --sleep-seconds 0.1
-          - id: scenario-long-queues
-            display: Long rollout queues
-            kind: scenario
-            store_workers: 48
-            runner:
-              - self-hosted
-              - 1ES.Pool=agl-runner-cpu
-            timeout: 120
-            args: >-
-              --mode batch_partial
-              --total-tasks 50000
-              --batch-size 1024
-              --n-runners 256
-              --remaining-tasks 4096
-              --max-rounds 4
-              --sleep-seconds 0.1
-          - id: scenario-high-concurrency
-            display: High-throughput concurrent requests
-            kind: scenario
-            store_workers: 96
-            runner:
-              - self-hosted
-              - 1ES.Pool=agl-runner-cpu-high
-            timeout: 120
-            args: >-
-              --mode single
-              --total-tasks 50000
-              --concurrency 2048
-              --n-runners 256
-              --max-rounds 2
-              --sleep-seconds 0.1
-          - id: scenario-heavy-traces
-            display: Heavy rollouts with deep traces
-            kind: scenario
-            store_workers: 96
-            runner:
-              - self-hosted
-              - 1ES.Pool=agl-runner-cpu-high
-            timeout: 60
-            args: >-
-              --mode batch_partial
-              --total-tasks 10000
-              --batch-size 1024
-              --remaining-tasks 256
-              --n-runners 512
-              --max-rounds 20
-              --sleep-seconds 1.0
+          # - id: scenario-large-batch
+          #   display: Large batch waves
+          #   kind: scenario
+          #   store_workers: 96
+          #   runner:
+          #     - self-hosted
+          #     - 1ES.Pool=agl-runner-cpu-high
+          #   timeout: 120
+          #   args: >-
+          #     --mode batch
+          #     --total-tasks 50000
+          #     --batch-size 8192
+          #     --n-runners 1000
+          #     --max-rounds 3
+          #     --sleep-seconds 0.1
+          # - id: scenario-long-queues
+          #   display: Long rollout queues
+          #   kind: scenario
+          #   store_workers: 48
+          #   runner:
+          #     - self-hosted
+          #     - 1ES.Pool=agl-runner-cpu
+          #   timeout: 120
+          #   args: >-
+          #     --mode batch_partial
+          #     --total-tasks 50000
+          #     --batch-size 1024
+          #     --n-runners 256
+          #     --remaining-tasks 4096
+          #     --max-rounds 4
+          #     --sleep-seconds 0.1
+          # - id: scenario-high-concurrency
+          #   display: High-throughput concurrent requests
+          #   kind: scenario
+          #   store_workers: 96
+          #   runner:
+          #     - self-hosted
+          #     - 1ES.Pool=agl-runner-cpu-high
+          #   timeout: 120
+          #   args: >-
+          #     --mode single
+          #     --total-tasks 50000
+          #     --concurrency 2048
+          #     --n-runners 256
+          #     --max-rounds 2
+          #     --sleep-seconds 0.1
+          # - id: scenario-heavy-traces
+          #   display: Heavy rollouts with deep traces
+          #   kind: scenario
+          #   store_workers: 96
+          #   runner:
+          #     - self-hosted
+          #     - 1ES.Pool=agl-runner-cpu-high
+          #   timeout: 60
+          #   args: >-
+          #     --mode batch_partial
+          #     --total-tasks 10000
+          #     --batch-size 1024
+          #     --remaining-tasks 256
+          #     --n-runners 512
+          #     --max-rounds 20
+          #     --sleep-seconds 1.0
 
           # - id: micro-worker
           #   display: Update worker
@@ -425,6 +425,39 @@ jobs:
             echo "== ClickHouse rows BEFORE workload =="
             docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml exec -T clickhouse               clickhouse-client -q "SELECT count() FROM otel.otel_traces" 2>/dev/null || true
           } | tee "$GITHUB_WORKSPACE/$ARTIFACT_DIR/clickhouse-rows-before.txt"
+
+      # DEBUGGG
+      - name: Debug ClickHouse/otelcol status (before benchmark)
+        if: ${{ matrix.trace_sink == 'clickhouse' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "== docker compose ps =="
+          docker compose ps || true
+
+          echo "== otelcol last 200 lines =="
+          docker compose logs --tail=200 otelcol || true
+
+          echo "== clickhouse last 200 lines =="
+          docker compose logs --tail=200 clickhouse || true
+
+      - name: Wait for OTLP HTTP endpoint (4318)
+        if: ${{ matrix.trace_sink == 'clickhouse' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..60}; do
+            if curl -fsS http://localhost:4318/ >/dev/null 2>&1; then
+              echo "OTLP HTTP endpoint is up."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "OTLP HTTP endpoint did not come up (4318). Dumping logs..."
+          docker compose ps || true
+          docker compose logs --tail=300 otelcol || true
+          exit 1
+      # DEBUGGG END
 
       - name: Record workload start
         run: echo "BENCHMARK_START=$(date -u +%FT%TZ)" >> "$GITHUB_ENV"
