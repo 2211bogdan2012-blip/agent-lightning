@@ -20,8 +20,8 @@ jobs:
             compose_file: compose.prometheus-memory-store.yml
           - id: mongo
             compose_file: compose.prometheus-mongo-store.yml
-        # trace_sink: [store, kafka]
-        trace_sink: [kafka]
+        # trace_sink: [store, kafka, clickhouse]
+        trace_sink: [clickhouse]
         workload:
           - id: scenario-minimal-scale
             display: Minimal production scale
@@ -236,10 +236,10 @@ jobs:
           exit 1
 
 
-      - name: Configure trace sink (store vs kafka)
+      - name: Configure trace sink (store vs otlp)
         run: |
           set -euo pipefail
-          if [ "${{ matrix.trace_sink }}" = "kafka" ]; then
+          if [ "${{ matrix.trace_sink }}" = "kafka" ] || [ "${{ matrix.trace_sink }}" = "clickhouse" ]; then
             echo "AGL_OTLP_ENDPOINT=http://localhost:4318/v1/traces" >> "$GITHUB_ENV"
           fi
 
@@ -327,6 +327,77 @@ jobs:
           echo "OTel Collector port 4318 not reachable in time" >&2
           docker compose -p agl-kafka -f compose.kafka-otel.yml logs otelcol || true
           exit 1
+
+      - name: Launch ClickHouse + OTel Collector (OTLP -> ClickHouse)
+        if: ${{ matrix.trace_sink == 'clickhouse' }}
+        run: |
+          set -euo pipefail
+          cd docker
+
+          # Generate OTel Collector config (OTLP/HTTP receiver -> ClickHouse exporter)
+          cat > otelcol-clickhouse.yml <<'YAML'
+          receivers:
+            otlp:
+              protocols:
+                http:
+                  endpoint: 0.0.0.0:4318
+          processors:
+            batch: {}
+          exporters:
+            clickhouse:
+              endpoint: tcp://clickhouse:9000?dial_timeout=10s&compress=lz4
+              database: otel
+              traces_table_name: otel_traces
+              username: default
+              password: ${env:CLICKHOUSE_PASSWORD}
+          service:
+            pipelines:
+              traces:
+                receivers: [otlp]
+                processors: [batch]
+                exporters: [clickhouse]
+          YAML
+
+          # Launch ClickHouse + OTel Collector
+          cat > compose.clickhouse-otel.yml <<'YAML'
+          services:
+            clickhouse:
+              image: clickhouse/clickhouse-server:latest
+              environment:
+                CLICKHOUSE_PASSWORD: "changeme"
+              ulimits:
+                nofile:
+                  soft: 262144
+                  hard: 262144
+
+            otelcol:
+              image: otel/opentelemetry-collector-contrib:latest
+              depends_on: [clickhouse]
+              command:
+                - "--config=/etc/otelcol/config.yml"
+                # - "--set=service.telemetry.logs.level=debug"
+              environment:
+                CLICKHOUSE_PASSWORD: "changeme"
+              volumes:
+                - ./otelcol-clickhouse.yml:/etc/otelcol/config.yml:ro
+              ports:
+                - "4318:4318"
+          YAML
+
+          docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml down -v || true
+          docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml up -d --quiet-pull
+
+          # Wait for OTLP/HTTP port to be reachable on the host
+          for attempt in {1..30}; do
+            if (echo > /dev/tcp/127.0.0.1/4318) >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "OTel Collector port 4318 not reachable in time" >&2
+          docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml logs otelcol || true
+          exit 1
+
       - name: Prepare artifact directory
         run: mkdir -p "$ARTIFACT_DIR"
 
@@ -343,6 +414,17 @@ jobs:
             docker compose -p agl-kafka -f compose.kafka-otel.yml exec -T kafka \
               kafka-run-class kafka.tools.GetOffsetShell --broker-list kafka:9092 --topic agl-otlp-spans 2>/dev/null || true
           } | tee "$GITHUB_WORKSPACE/$ARTIFACT_DIR/kafka-offsets-before.txt"
+
+
+      - name: ClickHouse row count (before workload)
+        if: ${{ matrix.trace_sink == 'clickhouse' }}
+        run: |
+          set -euo pipefail
+          cd docker
+          {
+            echo "== ClickHouse rows BEFORE workload =="
+            docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml exec -T clickhouse               clickhouse-client -q "SELECT count() FROM otel.otel_traces" 2>/dev/null || true
+          } | tee "$GITHUB_WORKSPACE/$ARTIFACT_DIR/clickhouse-rows-before.txt"
 
       - name: Record workload start
         run: echo "BENCHMARK_START=$(date -u +%FT%TZ)" >> "$GITHUB_ENV"
@@ -381,6 +463,17 @@ jobs:
             docker compose -p agl-kafka -f compose.kafka-otel.yml exec -T kafka \
               kafka-run-class kafka.tools.GetOffsetShell --broker-list kafka:9092 --topic agl-otlp-spans 2>/dev/null || true
           } | tee "$GITHUB_WORKSPACE/$ARTIFACT_DIR/kafka-offsets-after.txt"
+
+
+      - name: ClickHouse row count (after workload)
+        if: ${{ always() && matrix.trace_sink == 'clickhouse' }}
+        run: |
+          set -euo pipefail
+          cd docker
+          {
+            echo "== ClickHouse rows AFTER workload =="
+            docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml exec -T clickhouse               clickhouse-client -q "SELECT count() FROM otel.otel_traces" 2>/dev/null || true
+          } | tee "$GITHUB_WORKSPACE/$ARTIFACT_DIR/clickhouse-rows-after.txt"
 
       - name: Show micro benchmark summary
         if: ${{ always() && matrix.workload.kind == 'micro' }}
@@ -439,6 +532,19 @@ jobs:
             done
           fi
 
+
+      - name: Collect ClickHouse + OTel Collector logs
+        if: ${{ always() && matrix.trace_sink == 'clickhouse' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$ARTIFACT_DIR"
+          cd docker
+          if [ -f compose.clickhouse-otel.yml ]; then
+            for service in clickhouse otelcol; do
+              docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml logs "$service"                 > "../$ARTIFACT_DIR/docker-clickhouse-${service}-${WORKLOAD_ID}-${BACKEND_ID}.log" || true
+            done
+          fi
+
       - name: Stop Kafka + OTel Collector
         if: ${{ always() && matrix.trace_sink == 'kafka' }}
         run: |
@@ -447,6 +553,16 @@ jobs:
           if [ -f compose.kafka-otel.yml ]; then
             docker compose -p agl-kafka -f compose.kafka-otel.yml down -v || true
           fi
+
+      - name: Stop ClickHouse + OTel Collector
+        if: ${{ always() && matrix.trace_sink == 'clickhouse' }}
+        run: |
+          set -euo pipefail
+          cd docker
+          if [ -f compose.clickhouse-otel.yml ]; then
+            docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml down -v || true
+          fi
+
       - name: Stop ${{ matrix.backend.id }} Prometheus stack
         if: ${{ always() }}
         run: |
