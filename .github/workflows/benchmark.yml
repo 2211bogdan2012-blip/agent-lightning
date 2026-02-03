@@ -348,7 +348,7 @@ jobs:
               endpoint: tcp://clickhouse:9000?dial_timeout=10s&compress=lz4
               database: otel
               traces_table_name: otel_traces
-              username: default
+              username: otel
               password: ${env:CLICKHOUSE_PASSWORD}
           service:
             pipelines:
@@ -390,12 +390,12 @@ jobs:
                   condition: service_healthy
               restart: unless-stopped
               command:
-                - "--config=/etc/otelcol/config.yaml"
+                - "--config=/etc/otelcol/config.yml"
                 - "--set=service.telemetry.logs.level=debug"
               environment:
                 CLICKHOUSE_PASSWORD: "changeme"
               volumes:
-                - ./otelcol-clickhouse.yml:/etc/otelcol/config.yaml:ro
+                - ./otelcol-clickhouse.yml:/etc/otelcol/config.yml:ro
               ports:
                 - "4318:4318"
 
@@ -457,13 +457,13 @@ jobs:
           ls -la
 
           echo "== docker compose ps =="
-          docker compose -f compose.clickhouse-otel.yml ps || true
+          docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml ps || true
 
           echo "== otelcol last 200 lines =="
-          docker compose -f compose.clickhouse-otel.yml logs --tail=200 otelcol || true
+          docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml logs --tail=200 otelcol || true
 
           echo "== clickhouse last 200 lines =="
-          docker compose -f compose.clickhouse-otel.yml logs --tail=200 clickhouse || true
+          docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml logs --tail=200 clickhouse || true
 
       - name: Wait for OTLP HTTP endpoint (4318)
         if: ${{ matrix.trace_sink == 'clickhouse' }}
@@ -471,16 +471,16 @@ jobs:
         run: |
           set -euo pipefail
           for i in {1..60}; do
-            if curl -fsS http://localhost:4318/ >/dev/null 2>&1; then
-              echo "OTLP HTTP endpoint is up."
+            if (echo > /dev/tcp/127.0.0.1/4318) >/dev/null 2>&1; then
+              echo "OTLP port 4318 is listening."
               exit 0
             fi
             sleep 1
           done
-          echo "OTLP HTTP endpoint did not come up (4318). Dumping logs..."
+          echo "OTLP port did not become reachable (4318). Dumping logs..."
           cd docker
-          docker compose -f compose.clickhouse-otel.yml ps || true
-          docker compose -f compose.clickhouse-otel.yml logs --tail=300 otelcol || true
+          docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml ps || true
+          docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml logs --tail=300 otelcol || true
           exit 1
       # DEBUGGG END
 
