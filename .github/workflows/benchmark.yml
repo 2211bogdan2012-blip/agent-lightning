@@ -364,24 +364,44 @@ jobs:
             clickhouse:
               image: clickhouse/clickhouse-server:latest
               environment:
+                CLICKHOUSE_USER: "otel"
                 CLICKHOUSE_PASSWORD: "changeme"
+                CLICKHOUSE_DB: "otel"
               ulimits:
                 nofile:
                   soft: 262144
                   hard: 262144
+              ports:
+                - "8123:8123"
+                - "9000:9000"
+              volumes:
+                - ch_data:/var/lib/clickhouse
+              healthcheck:
+                test: ["CMD-SHELL", "wget -qO- http://localhost:8123/ping | grep -q Ok"]
+                interval: 2s
+                timeout: 2s
+                retries: 30
+                start_period: 10s
 
             otelcol:
               image: otel/opentelemetry-collector-contrib:latest
-              depends_on: [clickhouse]
+              depends_on:
+                clickhouse:
+                  condition: service_healthy
+              restart: unless-stopped
               command:
-                - "--config=/etc/otelcol/config.yml"
+                - "--config=/etc/otelcol/config.yaml"
                 - "--set=service.telemetry.logs.level=debug"
               environment:
                 CLICKHOUSE_PASSWORD: "changeme"
               volumes:
-                - ./otelcol-clickhouse.yml:/etc/otelcol/config.yml:ro
+                - ./otelcol-clickhouse.yaml:/etc/otelcol/config.yaml:ro
               ports:
                 - "4318:4318"
+
+          volumes:
+            ch_data:
+
           YAML
 
           docker compose -p agl-clickhouse -f compose.clickhouse-otel.yml down -v || true
