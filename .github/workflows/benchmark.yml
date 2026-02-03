@@ -395,7 +395,7 @@ jobs:
               environment:
                 CLICKHOUSE_PASSWORD: "changeme"
               volumes:
-                - ./otelcol-clickhouse.yml:/etc/otelcol/config.yml:ro
+                - ./otelcol-clickhouse.yml:/etc/otelcol/config.yaml:ro
               ports:
                 - "4318:4318"
 
