@@ -429,17 +429,21 @@ jobs:
       # DEBUGGG
       - name: Debug ClickHouse/otelcol status (before benchmark)
         if: ${{ matrix.trace_sink == 'clickhouse' }}
+        working-directory: docker
         shell: bash
         run: |
           set -euo pipefail
+          echo "== ls =="
+          ls -la
+
           echo "== docker compose ps =="
-          docker compose ps || true
+          docker compose -f compose.clickhouse-otel.yml ps || true
 
           echo "== otelcol last 200 lines =="
-          docker compose logs --tail=200 otelcol || true
+          docker compose -f compose.clickhouse-otel.yml logs --tail=200 otelcol || true
 
           echo "== clickhouse last 200 lines =="
-          docker compose logs --tail=200 clickhouse || true
+          docker compose -f compose.clickhouse-otel.yml logs --tail=200 clickhouse || true
 
       - name: Wait for OTLP HTTP endpoint (4318)
         if: ${{ matrix.trace_sink == 'clickhouse' }}
@@ -454,8 +458,9 @@ jobs:
             sleep 1
           done
           echo "OTLP HTTP endpoint did not come up (4318). Dumping logs..."
-          docker compose ps || true
-          docker compose logs --tail=300 otelcol || true
+          cd docker
+          docker compose -f compose.clickhouse-otel.yml ps || true
+          docker compose -f compose.clickhouse-otel.yml logs --tail=300 otelcol || true
           exit 1
       # DEBUGGG END
 
