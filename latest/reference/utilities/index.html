@@ -3743,7 +3743,7 @@
 
     <div class="doc doc-contents first">
 
-        <p>Generate a random ID of the given length.</p>
+        <p>Generate a random hexadecimal ID of the given length.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3753,7 +3753,7 @@
               (<code><span title="int">int</span></code>)
           –
           <div class="doc-md-description">
-            <p>The length of the ID to generate.</p>
+            <p>The desired length of the generated ID. Must be a positive integer.</p>
           </div>
         </li>
     </ul>
@@ -3765,7 +3765,19 @@
               <code><span title="str">str</span></code>
           –
           <div class="doc-md-description">
-            <p>A random ID of the given length.</p>
+            <p>A random hexadecimal ID string of the given length.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ValueError">ValueError</span></code>
+            –
+          <div class="doc-md-description">
+            <p>If length is not a positive integer.</p>
           </div>
         </li>
     </ul>
