@@ -153,6 +153,7 @@ jobs:
           USE_OPENAI: true
           AGL_TEST_MONGO_URI: mongodb://localhost:27017/?replicaSet=rs0
 
+
   minimal-examples:
     if: >
       github.event_name != 'repository_dispatch' ||
