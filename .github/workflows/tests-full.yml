@@ -150,8 +150,15 @@ jobs:
           PYTEST_ADDOPTS: "--color=yes"
           OPENAI_BASE_URL: http://localhost:12306/
           OPENAI_API_KEY: dummy
+          USE_OPENAI: true
           AGL_TEST_MONGO_URI: mongodb://localhost:27017/?replicaSet=rs0
 
+      - name: Upload prompt caches
+        uses: actions/upload-artifact@v6
+        with:
+          name: prompt-caches-${{ matrix.mark.id }}-${{ matrix.env.python-version }}-${{ matrix.env.setup-script }}
+          path: tests/assets/prompt_caches.jsonl
+          compression-level: 0
 
   minimal-examples:
     if: >
