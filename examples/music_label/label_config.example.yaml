@@ -1,0 +1,103 @@
+# Конфигурация музыкального лейбла
+# Скопируйте в label_config.yaml и заполните своими данными
+
+label:
+  name: "НЕКСТ АП"                    # Название лейбла
+  legal_entity: "Flame Generation LLC" # Юрлицо
+  owner: "Богдан"                      # Владелец
+  currency: "RUB"                      # Валюта расчётов
+  default_split: 0.70                  # Дефолтный сплит артиста
+
+# Дистрибьютор
+distributor:
+  name: "Koala Music"
+  api_base: "https://api.koala-music.com/das/api/ofa"
+  auth_url: "https://identity.koala-music.com/connect/token"
+  client_id: "lp-km"
+  # refresh_token: "YOUR_REFRESH_TOKEN"  # Из .env
+  agreement_id: 21014
+
+# Артисты — список с индивидуальными сплитами
+# Для нового лейбла замените на своих артистов
+artists:
+  - name: "STOPBAN"
+    koala_names: ["STOPBAN"]
+    split: 0.75
+    contract_status: "signed"
+    
+  - name: "elyaplugg!"
+    koala_names: ["elyaplugg!"]
+    split: 0.70
+    contract_status: "signed"
+    
+  - name: "VILLIAN"
+    koala_names: ["VILLIAN"]
+    split: 0.80
+    contract_status: "signed"
+
+  - name: "Kxkmeta"
+    koala_names: ["Kxkmeta"]
+    split: 0.60
+    contract_status: "signed"
+
+  # Добавьте остальных артистов...
+  # - name: "ИМЯ_АРТИСТА"
+  #   koala_names: ["имя в Koala"]
+  #   split: 0.70
+  #   contract_status: "signed"  # signed | placeholder | missing
+
+# Telegram бот
+telegram:
+  bot_token: ""                        # От @BotFather
+  admin_ids: []                        # Telegram ID админов
+  language: "ru"                       # Язык интерфейса
+
+# База данных
+database:
+  type: "postgresql"
+  # url: "postgresql://..."            # Из .env
+  
+# Хостинг
+hosting:
+  provider: "render"                   # render | railway | fly.io
+  tier: "free"
+  health_endpoint: "/health"
+  keep_alive_interval: 600             # секунд
+
+# Хранилище контрактов
+contracts_storage:
+  type: "yandex_disk"                  # yandex_disk | google_drive | local
+  base_path: "Документы НЕКСТАП/АРТИСТЫ"
+  contract_subfolder: "Лицензионные договоры"
+
+# AI Агенты — какие включить
+agents:
+  director:
+    enabled: true
+    model: "opus"
+    telegram_bot: true
+    whatsapp: false                    # true если нужен WhatsApp
+    
+  royalty_manager:                     # Rita
+    enabled: true
+    model: "opus"
+    auto_fetch_interval: "quarterly"   # quarterly | monthly | weekly
+    
+  contract_manager:                    # Max
+    enabled: true
+    model: "opus"
+    scan_contracts: true
+    
+  release_manager:                     # Lena
+    enabled: false                     # Включить когда нужен
+    model: "sonnet"
+    
+  analytics:                           # Denis
+    enabled: false
+    model: "sonnet"
+    
+  devops:                              # Sasha
+    enabled: true
+    model: "sonnet"
+    docker: true
+    ci_cd: true
